@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Image Grid Drag & Snap</title>
+  <title>Drag & Drop with Google Sheets</title>
   <style>
     body {
       margin: 0;
@@ -11,7 +11,6 @@
       align-items: center;
       height: 100vh;
       background: #eee;
-      user-select: none;
     }
 
     .grid {
@@ -19,7 +18,6 @@
       grid-template-columns: repeat(6, 150px);
       grid-template-rows: repeat(2, 200px);
       gap: 10px;
-      position: relative;
     }
 
     .box {
@@ -51,16 +49,24 @@
   <div class="grid" id="grid"></div>
 
   <script>
-    const SHEET_URL = "https://script.google.com/macros/s/AKfycbyrqwd_Q6sUiQ7xE6wXzM4EEqAJE-f4_MpWYpHzN2pIq596icpBvjNuD3P0eA1nuyBN/exec"; // ← replace with your own Apps Script Web App URL
-
-    let imageUrls = [];
     const grid = document.getElementById('grid');
-    const boxes = [];
+    const backendURL = 'https://script.google.com/macros/s/AKfycbyrqwd_Q6sUiQ7xE6wXzM4EEqAJE-f4_MpWYpHzN2pIq596icpBvjNuD3P0eA1nuyBN/exec'; // ← REPLACE THIS
 
-    function renderGrid() {
+    let boxes = [];
+    let draggingImg = null;
+    let originBox = null;
+    let currentBox = null;
+    let imageUrls = [];
+
+    async function fetchOrder() {
+      const res = await fetch(backendURL);
+      imageUrls = await res.json();
+      createBoxes();
+    }
+
+    function createBoxes() {
+      boxes = [];
       grid.innerHTML = '';
-      boxes.length = 0;
-
       imageUrls.forEach((url, index) => {
         const box = document.createElement('div');
         box.className = 'box';
@@ -77,31 +83,12 @@
       });
     }
 
-    function saveOrderToSheet() {
-      const currentOrder = Array.from(grid.querySelectorAll('img')).map(img => img.src);
-      fetch(SHEET_URL, {
-        method: "POST",
-        body: JSON.stringify(currentOrder),
-        headers: { "Content-Type": "application/json" }
-      }).then(res => {
-        if (res.ok) {
-          console.log("✅ Order saved");
-        } else {
-          console.warn("⚠️ Failed to save order");
-        }
-      });
-    }
-
     function getBoxUnderMouse(x, y) {
       return boxes.find(box => {
         const rect = box.getBoundingClientRect();
         return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
       });
     }
-
-    let draggingImg = null;
-    let originBox = null;
-    let currentBox = null;
 
     document.addEventListener('mousedown', (e) => {
       if (e.target.tagName === 'IMG') {
@@ -145,20 +132,17 @@
         draggingImg = null;
         originBox = null;
         currentBox = null;
-        saveOrderToSheet();
+
+        // Save new order
+        const newOrder = Array.from(grid.querySelectorAll('img')).map(img => img.src);
+        fetch(backendURL, {
+          method: 'POST',
+          body: JSON.stringify(newOrder)
+        });
       }
     });
 
-    // Initial load
-    fetch(SHEET_URL)
-      .then(res => res.json())
-      .then(data => {
-        imageUrls = data;
-        renderGrid();
-      })
-      .catch(err => {
-        console.error("❌ Failed to load images from Google Sheets:", err);
-      });
+    fetchOrder();
   </script>
 </body>
 </html>

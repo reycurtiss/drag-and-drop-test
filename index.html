@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Image Grid Drag & Snap</title>
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: #eee;
+      user-select: none;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(6, 150px);
+      grid-template-rows: repeat(2, 200px);
+      gap: 10px;
+      position: relative;
+    }
+
+    .box {
+      width: 150px;
+      height: 200px;
+      background: #ccc;
+      border: 2px dashed #999;
+      position: relative;
+    }
+
+    .box img {
+      width: 150px;
+      height: 200px;
+      object-fit: cover;
+      position: absolute;
+      top: 0;
+      left: 0;
+      cursor: grab;
+      transition: transform 0.1s ease;
+      z-index: 1;
+    }
+
+    .preview {
+      outline: 3px solid #00f;
+    }
+  </style>
+</head>
+<body>
+  <div class="grid" id="grid"></div>
+  <script>
+    const imageUrls = [
+  'https://dl.dropboxusercontent.com/scl/fi/zg1r3oomovl9pjwz53ks9/Alva.png?rlkey=2s19hb5h0tdxf3oidri577v2y&st=5kus57t0&dl=0',
+  'https://dl.dropboxusercontent.com/scl/fi/glcff7zdeh3osgshefvva/Andoris.png?rlkey=wvkwrfwda73u12hgfeq41bxml&st=9ea5wjfa&dl=0',
+  'https://dl.dropboxusercontent.com/scl/fi/iu1l238bhrjcte3jphmln/Balthilde.png?rlkey=vjp8ritmq9pvcbhff1zb5f6ol&st=kqqzf9t2&dl=0',
+  'https://dl.dropboxusercontent.com/scl/fi/xahnanu5unh6hbtwv6nw3/Belka.png?rlkey=rqhnztgogq5ce7436cr0je84l&st=rnldyhc1&dl=0',
+  'https://dl.dropboxusercontent.com/scl/fi/mpdfgzdd5rozc1sss3j8z/Florence.png?rlkey=64myzri6tgssmpvwqboqk5ssb&st=g7jci8w8&dl=0',
+  'https://dl.dropboxusercontent.com/scl/fi/z5puuorgpb1gi2bmg98n0/Jiangyu.png?rlkey=k40t32iay7u16m40mkpyga7i5&st=us93115z&dl=0',
+  'https://dl.dropboxusercontent.com/scl/fi/wwj2g5n6hvbv5e11s552t/Lainie.png?rlkey=v6lgnbhffxctke4437i4w4rm6&st=8gdulhf8&dl=0',
+  'https://dl.dropboxusercontent.com/scl/fi/8i3qasken2053cv9ittfo/Lenna.png?rlkey=iwmswjukxqi9vwseigceggb6b&st=qciqovf4&dl=0',
+  'https://dl.dropboxusercontent.com/scl/fi/1kwkvddtks3kugparnmrd/Leva.png?rlkey=wwj6x9ucuvd9vup2138k2km7j&st=uzz6a1mp&dl=0',
+  'https://dl.dropboxusercontent.com/scl/fi/p8hydvtt1azngi6vgfbb8/Lind.png?rlkey=5li5y2g8tdauqekd202idrs5i&st=tgcqiqr3&dl=0',
+  'https://dl.dropboxusercontent.com/scl/fi/1voo89vtq30axwc8034jz/Niketta.png?rlkey=htpz9989pb0c1me43twxy0u6z&st=kbn2og92&dl=0',
+  'https://dl.dropboxusercontent.com/scl/fi/vd6aq8xxoaxsl01nvnait/Robella.png?rlkey=dr04cb62tzikf9czy2jum3eg4&st=wgo9vtox&dl=0'
+];
+
+
+  const grid = document.getElementById('grid');
+  const boxes = [];
+
+  // Create boxes and assign images
+  imageUrls.forEach((url, index) => {
+    const box = document.createElement('div');
+    box.className = 'box';
+    box.dataset.index = index;
+
+    const img = document.createElement('img');
+    img.src = url;
+    img.draggable = false;
+    img.dataset.imageIndex = index;
+
+    box.appendChild(img);
+    grid.appendChild(box);
+    boxes.push(box);
+  });
+
+  let draggingImg = null;
+  let originBox = null;
+  let currentBox = null;
+
+  function getBoxUnderMouse(x, y) {
+    return boxes.find(box => {
+      const rect = box.getBoundingClientRect();
+      return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+    });
+  }
+
+  document.addEventListener('mousedown', (e) => {
+    if (e.target.tagName === 'IMG') {
+      draggingImg = e.target;
+      originBox = draggingImg.parentElement;
+      draggingImg.style.pointerEvents = 'none';
+      draggingImg.style.zIndex = 1000;
+    }
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!draggingImg) return;
+
+    const boxUnder = getBoxUnderMouse(e.clientX, e.clientY);
+    if (boxUnder && boxUnder !== currentBox) {
+      if (currentBox) currentBox.classList.remove('preview');
+      currentBox = boxUnder;
+      currentBox.classList.add('preview');
+
+      if (currentBox !== originBox) {
+        const targetImg = currentBox.querySelector('img');
+        if (targetImg) {
+          originBox.appendChild(targetImg);
+        }
+        currentBox.appendChild(draggingImg);
+      }
+    }
+
+    if (!boxUnder && currentBox) {
+      currentBox.classList.remove('preview');
+      currentBox = null;
+      originBox.appendChild(draggingImg);
+    }
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (draggingImg) {
+      draggingImg.style.pointerEvents = 'auto';
+      draggingImg.style.zIndex = 1;
+      if (currentBox) currentBox.classList.remove('preview');
+      draggingImg = null;
+      originBox = null;
+      currentBox = null;
+    }
+  });
+  </script>
+</body>
+</html>

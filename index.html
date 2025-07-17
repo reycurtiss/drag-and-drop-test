@@ -1,16 +1,26 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Drag & Drop with Google Sheets</title>
+  <meta charset="UTF-8" />
+  <title>Drag and Drop Image Grids</title>
   <style>
     body {
       margin: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
       background: #eee;
+      font-family: sans-serif;
+      padding: 30px;
+      user-select: none;
+    }
+
+    .section {
+      margin-bottom: 50px;
+      text-align: center;
+    }
+
+    .label {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 10px;
     }
 
     .grid {
@@ -18,6 +28,7 @@
       grid-template-columns: repeat(6, 150px);
       grid-template-rows: repeat(2, 200px);
       gap: 10px;
+      justify-content: center;
     }
 
     .box {
@@ -36,113 +47,138 @@
       top: 0;
       left: 0;
       cursor: grab;
-      transition: transform 0.1s ease;
+      transition: opacity 0.3s ease;
       z-index: 1;
     }
 
-    .preview {
-      outline: 3px solid #00f;
+    .box .number {
+      position: absolute;
+      top: 4px;
+      left: 6px;
+      z-index: 2;
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      padding: 2px 6px;
+      font-size: 14px;
+      font-weight: bold;
+      border-radius: 4px;
+    }
+
+    .box.drag-over {
+      outline: 3px solid blue;
     }
   </style>
 </head>
 <body>
-  <div class="grid" id="grid"></div>
+
+  <div class="section">
+    <div class="label">KG</div>
+    <div class="grid" id="grid-kg"></div>
+  </div>
+
+  <div class="section">
+    <div class="label">Tyzz</div>
+    <div class="grid" id="grid-tyzz"></div>
+  </div>
 
   <script>
-    const grid = document.getElementById('grid');
-    const backendURL = 'https://script.google.com/macros/s/AKfycbyrqwd_Q6sUiQ7xE6wXzM4EEqAJE-f4_MpWYpHzN2pIq596icpBvjNuD3P0eA1nuyBN/exec'; // ← REPLACE THIS
+    const SHEET_URL = 'https://script.google.com/macros/s/AKfycbyJZ2vAtbef29B8Zp71rl5VRoHg57W3Ifbff-AdrNsU3FtcMv6hSma7jozWsbNm6XMx/exec';
 
-    let boxes = [];
-    let draggingImg = null;
-    let originBox = null;
-    let currentBox = null;
-    let imageUrls = [];
+    const fallbackImageUrls = Array.from({ length: 12 }, (_, i) => `https://via.placeholder.com/150x200?text=${i + 1}`);
 
-    async function fetchOrder() {
-      const res = await fetch(backendURL);
-      imageUrls = await res.json();
-      createBoxes();
-    }
+    function createGrid(gridId, label) {
+      const grid = document.getElementById(gridId);
+      let imageUrls = [];
+      let dragIndex = null;
 
-    function createBoxes() {
-      boxes = [];
-      grid.innerHTML = '';
-      imageUrls.forEach((url, index) => {
-        const box = document.createElement('div');
-        box.className = 'box';
-        box.dataset.index = index;
+      function renderGrid() {
+        grid.innerHTML = '';
+        imageUrls.forEach((url, index) => {
+          const box = document.createElement('div');
+          box.classList.add('box');
+          box.dataset.index = index;
 
-        const img = document.createElement('img');
-        img.src = url;
-        img.draggable = false;
-        img.dataset.imageIndex = index;
+          const number = document.createElement('div');
+          number.className = 'number';
+          number.textContent = index + 1;
 
-        box.appendChild(img);
-        grid.appendChild(box);
-        boxes.push(box);
-      });
-    }
+          const img = document.createElement('img');
+          img.src = url;
+          img.draggable = true;
 
-    function getBoxUnderMouse(x, y) {
-      return boxes.find(box => {
-        const rect = box.getBoundingClientRect();
-        return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
-      });
-    }
+          img.addEventListener('dragstart', (e) => {
+            dragIndex = index;
+            e.dataTransfer.effectAllowed = 'move';
+          });
 
-    document.addEventListener('mousedown', (e) => {
-      if (e.target.tagName === 'IMG') {
-        draggingImg = e.target;
-        originBox = draggingImg.parentElement;
-        draggingImg.style.pointerEvents = 'none';
-        draggingImg.style.zIndex = 1000;
-      }
-    });
+          box.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            box.classList.add('drag-over');
+          });
 
-    document.addEventListener('mousemove', (e) => {
-      if (!draggingImg) return;
+          box.addEventListener('dragleave', () => {
+            box.classList.remove('drag-over');
+          });
 
-      const boxUnder = getBoxUnderMouse(e.clientX, e.clientY);
-      if (boxUnder && boxUnder !== currentBox) {
-        if (currentBox) currentBox.classList.remove('preview');
-        currentBox = boxUnder;
-        currentBox.classList.add('preview');
+          box.addEventListener('drop', (e) => {
+            e.preventDefault();
+            box.classList.remove('drag-over');
+            const dropIndex = parseInt(box.dataset.index);
+            swapImages(dragIndex, dropIndex);
+          });
 
-        if (currentBox !== originBox) {
-          const targetImg = currentBox.querySelector('img');
-          if (targetImg) {
-            originBox.appendChild(targetImg);
-          }
-          currentBox.appendChild(draggingImg);
-        }
+          box.appendChild(img);
+          box.appendChild(number);
+          grid.appendChild(box);
+        });
+
+        console.log(`🔍 ${label} order:`, imageUrls);
       }
 
-      if (!boxUnder && currentBox) {
-        currentBox.classList.remove('preview');
-        currentBox = null;
-        originBox.appendChild(draggingImg);
+      function swapImages(from, to) {
+        if (from === to) return;
+        const [moved] = imageUrls.splice(from, 1);
+        imageUrls.splice(to, 0, moved);
+        renderGrid();
+        saveToSheet();
       }
-    });
 
-    document.addEventListener('mouseup', () => {
-      if (draggingImg) {
-        draggingImg.style.pointerEvents = 'auto';
-        draggingImg.style.zIndex = 1;
-        if (currentBox) currentBox.classList.remove('preview');
-        draggingImg = null;
-        originBox = null;
-        currentBox = null;
-
-        // Save new order
-        const newOrder = Array.from(grid.querySelectorAll('img')).map(img => img.src);
-        fetch(backendURL, {
+      function saveToSheet() {
+        fetch(SHEET_URL, {
           method: 'POST',
-          body: JSON.stringify(newOrder)
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ who: label.toLowerCase(), order: imageUrls })
+        }).then(() => {
+          console.log(`✅ Saved ${label} order`);
+        }).catch(err => {
+          console.error(`❌ Failed to save ${label} order:`, err);
         });
       }
-    });
 
-    fetchOrder();
+      function loadImageOrder() {
+        fetch(SHEET_URL + '?who=' + label.toLowerCase())
+          .then(res => res.json())
+          .then(data => {
+            if (data.order && Array.isArray(data.order) && data.order.length > 0) {
+              imageUrls = data.order;
+            } else {
+              imageUrls = [...fallbackImageUrls];
+            }
+            renderGrid();
+          })
+          .catch(err => {
+            console.warn(`⚠️ Could not load ${label}, using fallback`, err);
+            imageUrls = [...fallbackImageUrls];
+            renderGrid();
+          });
+      }
+
+      loadImageOrder();
+    }
+
+    createGrid('grid-kg', 'KG');
+    createGrid('grid-tyzz', 'Tyzz');
   </script>
 </body>
 </html>
